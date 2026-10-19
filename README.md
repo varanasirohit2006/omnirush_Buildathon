@@ -52,6 +52,20 @@ make test
 
 The test suite is designed to run without internet access or external API credentials.
 
+To verify the complete product loop without opening the browser:
+
+```bash
+make demo-check
+```
+
+On Windows PowerShell, the equivalent is:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.demo_smoke
+```
+
+For the presenter flow, see [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
+
 ## Docker
 
 ```bash
