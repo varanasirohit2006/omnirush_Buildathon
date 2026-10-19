@@ -150,9 +150,9 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         return
 
-    def _redirect(self, notice: str) -> None:
+    def _redirect(self, notice: str, anchor: str = "intake") -> None:
         self.send_response(303)
-        self.send_header("Location", "/?notice=" + quote(notice))
+        self.send_header("Location", "/?notice=" + quote(notice) + f"#{anchor}")
         self.end_headers()
 
     def _body(self) -> dict[str, str]:
@@ -191,26 +191,34 @@ class Handler(BaseHTTPRequestHandler):
             RAW_CHAT = data.get("chat", "")
             STATE = new_state(RAW_CHAT)
             notice = f"Read {len(STATE.messages)} messages and found {len(STATE.commitments)} commitment candidates."
+            anchor = "board"
         elif path == "/reset":
             RAW_CHAT = SAMPLE_CHAT
             STATE = new_state(RAW_CHAT)
             notice = "Demo chat reset."
+            anchor = "intake"
         elif STATE is None:
             notice = "Extract a chat first."
+            anchor = "intake"
         elif path == "/run":
             notice = f"Agent created {len(run_agent(STATE))} new event(s)."
+            anchor = "agent"
         elif path == "/advance":
             notice = f"Clock advanced. Agent created {len(advance_clock(STATE, timedelta(hours=int(data.get('hours', '24')))))} new event(s)."
+            anchor = "agent"
         elif path == "/reply":
             item = next((candidate for candidate in STATE.commitments if candidate.id == data.get("commitment_id")), None)
             changed = handle_reply(STATE, item.owner, data.get("reply", "")) if item and item.owner else None
             notice = f"Updated {changed.owner}'s commitment to {changed.status}." if changed else "No matching open commitment found."
+            anchor = "agent"
         elif path == "/correct":
             changed = correct_commitment(STATE, data.get("commitment_id", ""), owner=data.get("owner"), status=data.get("status"))
             notice = "Correction recorded with evidence." if changed else "Commitment not found."
+            anchor = "board"
         else:
             notice = "Unknown action."
-        self._redirect(notice)
+            anchor = "intake"
+        self._redirect(notice, anchor)
 
 
 def main() -> None:
