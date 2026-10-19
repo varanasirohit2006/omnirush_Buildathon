@@ -59,6 +59,7 @@ def _apply_llm_reviews(state: AgentState, reviewer: Any) -> None:
             retained.append(commitment)
             continue
         commitment.review_decision = review.decision
+        commitment.review_confidence = review.confidence
         commitment.review_reason = review.reason
         event_kind = "llm_reviewed"
         if review.decision == "ignore":

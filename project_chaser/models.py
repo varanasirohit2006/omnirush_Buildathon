@@ -38,6 +38,7 @@ class Commitment:
     updated_at: datetime | None = None
     evidence: list[str] = field(default_factory=list)
     review_decision: str | None = None
+    review_confidence: float | None = None
     review_reason: str | None = None
 
     @property

@@ -39,7 +39,8 @@ def report_markdown(report: dict[str, object]) -> str:
         "## Commitments",
     ]
     for item in report["commitments"]:
-        lines.append(f"- {item['owner']} — {item['task']} — {item['status']} — due {item['deadline']} — evidence {item['evidence']}")
+        ai_note = f" — AI review: {item['ai_review']} ({item['ai_review_confidence']:.0%}) — {item['ai_review_reason']}" if item["ai_review"] else ""
+        lines.append(f"- {item['owner']} — {item['task']} — {item['status']} — due {item['deadline']} — evidence {item['evidence']}{ai_note}")
     return "\n".join(lines)
 
 
@@ -54,11 +55,15 @@ def _board(state: AgentState) -> str:
             for status in STATUSES
         )
         warning = f'<p class="warning">Clarification needed: {esc(item.clarification)}</p>' if item.clarification else ""
+        ai_review = ""
+        if item.review_decision:
+            ai_review = f'<p class="ai-review"><b>🤖 AI review:</b> {esc(item.review_decision)} ({item.review_confidence:.0%}) — {esc(item.review_reason or "No reason supplied")}</p>'
         cards.append(
             f"""<article class="card">
               <h3>{esc(item.owner or 'Unassigned')} · {esc(item.task)}</h3>
               <p><b>Status:</b> {esc(item.status)} &nbsp; <b>Deadline:</b> {esc(deadline)} &nbsp; <b>Confidence:</b> {esc(item.confidence_label)} ({item.confidence:.0%})</p>
               <p class="source"><b>Evidence {esc(item.source_message_id)}:</b> {esc(item.source_text)}</p>
+              {ai_review}
               {warning}
               <form method="post" action="/correct" class="inline-form">
                 <input type="hidden" name="commitment_id" value="{esc(item.id)}">
@@ -93,12 +98,12 @@ def _report(state: AgentState) -> str:
     report = build_report(state)
     summary = report["summary"]
     rows = "".join(
-        f'<tr><td>{esc(item["owner"])}</td><td>{esc(item["task"])}</td><td>{esc(item["status"])}</td><td>{esc(item["deadline"])}</td><td><code>{esc(item["evidence"])}</code></td></tr>'
+        f'<tr><td>{esc(item["owner"])}</td><td>{esc(item["task"])}</td><td>{esc(item["status"])}</td><td>{esc(item["deadline"])}</td><td>{esc(item["ai_review"] or "local")}</td><td><code>{esc(item["evidence"])}</code></td></tr>'
         for item in report["commitments"]
     )
     return f"""<section id="report"><h2>Evidence-based progress report</h2>
-      <div class="metrics"><span><b>{summary['total']}</b> tracked</span><span><b>{summary['done']}</b> done</span><span><b>{summary['blocked']}</b> blocked</span><span><b>{summary['missed']}</b> missed</span><span><b>{summary['clarifications']}</b> clarify</span></div>
-      <table><tr><th>Owner</th><th>Task</th><th>Status</th><th>Deadline</th><th>Evidence</th></tr>{rows}</table>
+      <div class="metrics"><span><b>{summary['total']}</b> tracked</span><span><b>{summary['done']}</b> done</span><span><b>{summary['blocked']}</b> blocked</span><span><b>{summary['missed']}</b> missed</span><span><b>{summary['clarifications']}</b> clarify</span><span><b>{summary['ai_reviewed']}</b> AI reviewed</span><span><b>{summary['ai_ignored']}</b> AI ignored</span></div>
+      <table><tr><th>Owner</th><th>Task</th><th>Status</th><th>Deadline</th><th>AI review</th><th>Evidence</th></tr>{rows}</table>
       <p><b>Fairness:</b> contribution is based on tracked commitments and status evidence, not message volume or judgments about people.</p>
       <details><summary>Downloadable report text</summary><pre>{esc(report_markdown(report))}</pre></details>
     </section>"""
@@ -148,7 +153,7 @@ def render_page(state: AgentState | None, raw_chat: str, notice: str = "") -> st
 
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Project Chaser</title>
       <style>
-      :root {{ font-family: Inter, system-ui, sans-serif; background:#f7f8fc; color:#172033; }} body {{ max-width:1100px; margin:0 auto; padding:24px; }} h1 {{ margin-bottom:4px; }} h2 {{ margin-top:0; }} section {{ background:white; border:1px solid #dce1ed; border-radius:14px; padding:20px; margin:18px 0; box-shadow:0 3px 12px #1720330d; }} textarea {{ width:100%; box-sizing:border-box; min-height:220px; font:inherit; padding:12px; border:1px solid #bfc7d9; border-radius:8px; }} input, select, button {{ font:inherit; padding:9px 11px; border:1px solid #bfc7d9; border-radius:7px; }} button {{ background:#eef2ff; cursor:pointer; }} button.primary {{ background:#3659d9; color:white; border-color:#3659d9; }} .button-row {{ display:inline-flex; gap:8px; margin:4px 4px 16px 0; }} .card {{ border:1px solid #e2e6f0; border-radius:10px; padding:14px; margin:10px 0; }} .card h3 {{ margin:0 0 8px; }} .source {{ color:#536078; font-size:.92rem; }} .warning {{ background:#fff4d6; padding:10px; border-radius:7px; }} .notice {{ background:#eef2ff; padding:12px; border-radius:8px; }} .ai-success {{ background:#e6f8ee; border:1px solid #78c89b; padding:12px; border-radius:8px; }} .ai-warning {{ background:#fff0e0; border:1px solid #e2a462; padding:12px; border-radius:8px; }} .metrics {{ display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 18px; }} .metrics span {{ background:#f0f3fa; padding:10px 13px; border-radius:8px; }} .metrics b {{ font-size:1.25rem; }} .inline-form, .reply-form {{ display:flex; flex-wrap:wrap; align-items:end; gap:8px; }} label {{ display:flex; flex-direction:column; gap:4px; font-size:.9rem; }} .outbox {{ border-left:4px solid #3659d9; background:#f5f7ff; padding:10px 14px; margin:8px 0; }} li {{ margin:8px 0; }} table {{ border-collapse:collapse; width:100%; }} th, td {{ text-align:left; padding:9px; border-bottom:1px solid #e2e6f0; }} code {{ background:#edf0f6; padding:2px 4px; border-radius:4px; }} .nav {{ display:flex; gap:12px; margin:16px 0; }} .nav a {{ color:#3659d9; }} </style></head><body>
+      :root {{ font-family: Inter, system-ui, sans-serif; background:#f7f8fc; color:#172033; }} body {{ max-width:1100px; margin:0 auto; padding:24px; }} h1 {{ margin-bottom:4px; }} h2 {{ margin-top:0; }} section {{ background:white; border:1px solid #dce1ed; border-radius:14px; padding:20px; margin:18px 0; box-shadow:0 3px 12px #1720330d; }} textarea {{ width:100%; box-sizing:border-box; min-height:220px; font:inherit; padding:12px; border:1px solid #bfc7d9; border-radius:8px; }} input, select, button {{ font:inherit; padding:9px 11px; border:1px solid #bfc7d9; border-radius:7px; }} button {{ background:#eef2ff; cursor:pointer; }} button.primary {{ background:#3659d9; color:white; border-color:#3659d9; }} .button-row {{ display:inline-flex; gap:8px; margin:4px 4px 16px 0; }} .card {{ border:1px solid #e2e6f0; border-radius:10px; padding:14px; margin:10px 0; }} .card h3 {{ margin:0 0 8px; }} .source {{ color:#536078; font-size:.92rem; }} .warning {{ background:#fff4d6; padding:10px; border-radius:7px; }} .notice {{ background:#eef2ff; padding:12px; border-radius:8px; }} .ai-success {{ background:#e6f8ee; border:1px solid #78c89b; padding:12px; border-radius:8px; }} .ai-warning {{ background:#fff0e0; border:1px solid #e2a462; padding:12px; border-radius:8px; }} .ai-review {{ background:#f5f7ff; border-left:3px solid #3659d9; padding:9px; border-radius:6px; }} .metrics {{ display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 18px; }} .metrics span {{ background:#f0f3fa; padding:10px 13px; border-radius:8px; }} .metrics b {{ font-size:1.25rem; }} .inline-form, .reply-form {{ display:flex; flex-wrap:wrap; align-items:end; gap:8px; }} label {{ display:flex; flex-direction:column; gap:4px; font-size:.9rem; }} .outbox {{ border-left:4px solid #3659d9; background:#f5f7ff; padding:10px 14px; margin:8px 0; }} li {{ margin:8px 0; }} table {{ border-collapse:collapse; width:100%; }} th, td {{ text-align:left; padding:9px; border-bottom:1px solid #e2e6f0; }} code {{ background:#edf0f6; padding:2px 4px; border-radius:4px; }} .nav {{ display:flex; gap:12px; margin:16px 0; }} .nav a {{ color:#3659d9; }} </style></head><body>
       <h1>🧭 Project Chaser</h1><p>The agent that takes the social hit of following up — politely, with evidence, and without spam.</p>
       <nav class="nav"><a href="#intake">Intake</a><a href="#board">Board</a><a href="#agent">Agent loop</a><a href="#report">Report</a><a href="#honesty">Honesty sheet</a></nav>
       {f'<p class="notice">{esc(notice)}</p>' if notice else ''}

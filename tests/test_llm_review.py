@@ -2,6 +2,8 @@ from project_chaser.agent import new_state
 from project_chaser.chat import parse_chat
 from project_chaser.extractor import extract_commitments
 from project_chaser.llm import LLMConfig, LLMError, LLMReview, OpenAICompatibleReviewer
+from project_chaser.report import build_report
+from app import render_page
 
 
 class FakeReviewer:
@@ -111,3 +113,16 @@ def test_native_gemini_response_can_be_normalized_to_compat_shape():
     reviews = reviewer.review(messages, [candidate])
 
     assert reviews[0].decision == "proposed"
+
+
+def test_ai_review_provenance_is_visible_in_board_and_report():
+    reviewer = FakeReviewer({"c001": "clarify"})
+    state = new_state("2026-10-19 09:00 - Ben: Maybe I can clean up the README", reviewer=reviewer)
+
+    report = build_report(state)
+    page = render_page(state, "", "")
+
+    assert report["summary"]["ai_reviewed"] == 1
+    assert report["commitments"][0]["ai_review"] == "clarify"
+    assert "AI review" in page
+    assert "fake review for deterministic test" in page

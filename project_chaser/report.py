@@ -29,6 +29,8 @@ def build_report(state: AgentState) -> dict[str, object]:
             "blocked": sum(item.status == "blocked" for item in commitments),
             "missed": sum(item.status == "missed" for item in commitments),
             "clarifications": sum(item.needs_clarification for item in commitments),
+            "ai_reviewed": sum(item.review_decision is not None for item in commitments),
+            "ai_ignored": len(state.ignored_candidates),
         },
         "commitments": [
             {
@@ -37,6 +39,9 @@ def build_report(state: AgentState) -> dict[str, object]:
                 "status": item.status,
                 "deadline": item.deadline.strftime("%Y-%m-%d %H:%M") if item.deadline else "Unclear",
                 "evidence": _evidence(item),
+                "ai_review": item.review_decision,
+                "ai_review_confidence": item.review_confidence,
+                "ai_review_reason": item.review_reason,
             }
             for item in commitments
         ],
