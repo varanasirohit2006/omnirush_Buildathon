@@ -120,7 +120,7 @@ def test_ai_review_provenance_is_visible_in_board_and_report():
     state = new_state("2026-10-19 09:00 - Ben: Maybe I can clean up the README", reviewer=reviewer)
 
     report = build_report(state)
-    page = render_page(state, "", "")
+    page = render_page(state, "", "", "commitments")
 
     assert report["summary"]["ai_reviewed"] == 1
     assert report["commitments"][0]["ai_review"] == "clarify"

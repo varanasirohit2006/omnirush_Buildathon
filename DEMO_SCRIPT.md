@@ -34,13 +34,13 @@ Say:
 
 > “I give Project Chaser the same messy group chat that normally gets forgotten.”
 
-Click **Extract commitments**.
+Click **Extract commitments**. The app opens the **Commitments** view automatically.
 
 Expected result:
 
 - 40 messages read
 - Commitment candidates appear
-- The board is shown automatically
+- The compact board is shown automatically
 
 ### 10–25 seconds — Conservative extraction
 
@@ -57,7 +57,7 @@ Say:
 
 ### 25–40 seconds — First follow-up
 
-Scroll to **Agent loop** and click **Run agent now**.
+Click **Chase** in the top navigation, then click **Run agent now**.
 
 Show the local outbox.
 
@@ -93,7 +93,7 @@ Say:
 
 ### 70–90 seconds — Defensible report
 
-Scroll to the report.
+Click **Report** in the top navigation.
 
 Show:
 
@@ -108,7 +108,7 @@ Finish with:
 
 ## Recovery during the demo
 
-- If the board is confusing, click **Reset demo chat** and extract again.
-- If the browser starts at the top after an action, press `Ctrl+F5` once; the application should return to the active section automatically.
+- If the board is confusing, click **Intake**, click **Reset demo chat**, and extract again.
+- Use the top navigation to move between **Commitments**, **Chase**, and **Report**; each view is intentionally focused so there is no long-page scrolling.
 - If the server is stopped, restart it with `.\.venv\Scripts\python.exe app.py`.
 - If asked whether messages are really sent, answer: “No. Delivery is intentionally simulated for the offline prototype; the policy and outbox are real.”

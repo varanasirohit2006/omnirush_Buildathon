@@ -16,8 +16,33 @@ def test_selected_file_is_used_as_chat_input():
     assert _uploaded_text(selected_file) == "Alice: I will do the slides"
 
 
-def test_page_explicitly_restores_the_requested_section():
-    page = render_page(None, "", "agent")
+def test_page_uses_focused_workflow_views_instead_of_one_long_page():
+    intake = render_page(None, "", "", "intake")
+    commitments = render_page(None, "", "", "commitments")
 
-    assert 'get("section")' in page
-    assert "scrollIntoView" in page
+    assert "Stop chasing" in intake
+    assert 'href="/?view=commitments"' in intake
+    assert "Your board is waiting" in commitments
+    assert 'href="/?view=intake"' in commitments
+
+
+def test_loaded_workspace_renders_compact_board_and_chase_navigation():
+    from project_chaser.agent import new_state
+
+    state = new_state("2026-10-19 09:00 - Alice: I will do the slides by Friday")
+    page = render_page(state, "", "", "commitments")
+
+    assert "Commitment board" in page
+    assert "Go to chase controls" in page
+    assert "OWNER" in page
+    assert "commitment-detail" in page
+
+
+def test_report_download_route_is_linked_from_report_view():
+    from project_chaser.agent import new_state
+
+    state = new_state("2026-10-19 09:00 - Alice: I will do the slides by Friday")
+    page = render_page(state, "", "", "report")
+
+    assert "Evidence-based report" in page
+    assert 'href="/report.txt"' in page
