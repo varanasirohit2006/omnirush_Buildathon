@@ -4,7 +4,7 @@ Project Chaser is an offline-first prototype that turns a messy group chat into 
 
 ## Current status
 
-The application is being built as a focused hackathon prototype. The intended demo flow is:
+The application is a focused hackathon prototype. The intended demo flow is:
 
 1. Paste or upload a group chat export.
 2. Review extracted commitments and clarification questions.
@@ -37,7 +37,7 @@ You can also put the same variable names in a local `.env` file. The application
 - Python 3.12
 - `pip`
 
-The runtime is pinned in `.python-version` and dependencies are pinned in `requirements.lock`.
+The runtime is pinned in `.python-version` and test dependencies are fully pinned in `requirements.lock`. The application runtime uses only Python’s standard library.
 
 ## Setup
 
@@ -90,6 +90,29 @@ docker run --rm -p 8501:8501 project-chaser
 ```
 
 Open <http://localhost:8501>. The interface is a standard-library local web server, so the running prototype does not require a third-party UI package or an internet connection.
+
+## Clean Linux commands
+
+From a fresh Linux checkout with Python 3.12, run:
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/python -m pip install --requirement requirements.lock
+make test
+make demo-check
+make run
+```
+
+Then open <http://localhost:8501>.
+
+To build and run the container instead:
+
+```bash
+docker build --tag project-chaser .
+docker run --rm --publish 8501:8501 project-chaser
+```
+
+The `.dockerignore` file excludes `.env`, `.venv`, Git metadata, caches, and logs from the image build context.
 
 ## Privacy and honesty
 
