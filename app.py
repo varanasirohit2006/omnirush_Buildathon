@@ -143,6 +143,7 @@ def render_page(state: AgentState | None, raw_chat: str, notice: str = "") -> st
       <section id="intake"><h2>1. Give Project Chaser the group chat</h2><form method="post" action="/ingest" enctype="multipart/form-data"><textarea name="chat">{esc(raw_chat)}</textarea><p><label>Optional .txt upload <input type="file" name="upload" accept=".txt"></label></p><button class="primary">Extract commitments</button></form><form method="post" action="/reset" class="button-row"><button>Reset demo chat</button></form><p><small>Privacy: this prototype keeps the supplied chat on this machine. Outgoing messages are simulated locally.</small></p></section>
       {board_section}{agent_section}{report}
       <section id="honesty"><h2>Honesty sheet</h2><h3>Real</h3><ul><li>Chat parsing, conservative commitment extraction, confidence, and clarification.</li><li>Board corrections, evidence events, time simulation, bounded nudges, reply handling, and report generation.</li></ul><h3>Simulated</h3><ul><li>The local outbox shows what a Telegram or email adapter would send; it does not deliver messages.</li><li>The fast-forward clock stands in for real elapsed time.</li><li>The extractor uses explainable rules and a small slang/Hinglish vocabulary rather than a hosted model.</li></ul><h3>Privacy guardrails</h3><ul><li>No hidden monitoring or private one-to-one chat access.</li><li>No guessed owner or deadline.</li><li>Quiet hours, two reminder maximum, and one overdue escalation.</li></ul></section>
+      <script>const target=new URLSearchParams(window.location.search).get("section"); if(target){{window.addEventListener("load",()=>{{const element=document.getElementById(target); if(element){{element.scrollIntoView({{block:"start",behavior:"instant"}});}}}});}}</script>
       </body></html>"""
 
 
@@ -152,7 +153,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _redirect(self, notice: str, anchor: str = "intake") -> None:
         self.send_response(303)
-        self.send_header("Location", "/?notice=" + quote(notice) + f"#{anchor}")
+        self.send_header("Location", "/?notice=" + quote(notice) + f"&section={anchor}#{anchor}")
         self.end_headers()
 
     def _body(self) -> dict[str, str]:
