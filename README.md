@@ -18,7 +18,7 @@ The prototype does not read private one-to-one chats, require a WhatsApp API, or
 
 ## Requirements
 
-- Python 3.11
+- Python 3.12
 - `pip`
 
 The runtime is pinned in `.python-version` and dependencies are pinned in `requirements.lock`.
