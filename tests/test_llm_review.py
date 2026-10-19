@@ -97,3 +97,17 @@ def test_gemini_configuration_uses_expected_endpoint_without_network(monkeypatch
     assert config.url.endswith("/v1beta/openai/chat/completions")
     assert config.model == "gemini-test-model"
     assert config.timeout_seconds == 17
+
+
+def test_native_gemini_response_can_be_normalized_to_compat_shape():
+    messages = parse_chat("2026-10-19 09:02 - Ben: Maybe I can clean up the README")
+    candidate = extract_commitments(messages)[0]
+    reviewer = OpenAICompatibleReviewer(LLMConfig("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "test-key", "gemma-test"))
+    reviewer._request = lambda payload: (_ for _ in ()).throw(LLMError("compatibility failure"))
+    reviewer._native_gemini_request = lambda payload: {
+        "choices": [{"message": {"content": '{"reviews":[{"candidate_id":"c001","decision":"proposed","confidence":0.8,"reason":"needs confirmation","clarification":null}]}'}}]
+    }
+
+    reviews = reviewer.review(messages, [candidate])
+
+    assert reviews[0].decision == "proposed"

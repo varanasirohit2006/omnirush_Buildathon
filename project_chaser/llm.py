@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .models import Commitment, Message
@@ -156,7 +157,12 @@ class OpenAICompatibleReviewer:
             ],
             "response_format": {"type": "json_object"},
         }
-        response = self._request(payload)
+        try:
+            response = self._request(payload)
+        except LLMError:
+            if not self.config.url.startswith("https://generativelanguage.googleapis.com/"):
+                raise
+            response = self._native_gemini_request(payload)
         try:
             content = response["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
@@ -186,6 +192,45 @@ class OpenAICompatibleReviewer:
         if {review.candidate_id for review in reviews} != expected_ids:
             raise LLMError("The reviewer did not return one valid review per candidate")
         return reviews
+
+    def _native_gemini_request(self, openai_payload: dict[str, Any]) -> dict[str, Any]:
+        """Fallback for Google models that do not behave on the compat endpoint."""
+
+        messages = openai_payload.get("messages", [])
+        system_text = "\n".join(
+            str(message.get("content", ""))
+            for message in messages
+            if message.get("role") == "system"
+        )
+        user_text = "\n".join(
+            str(message.get("content", ""))
+            for message in messages
+            if message.get("role") != "system"
+        )
+        native_payload = {
+            "systemInstruction": {"parts": [{"text": system_text}]},
+            "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+            "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+        }
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{quote(self.config.model, safe='')}:generateContent"
+            f"?key={quote(self.config.api_key, safe='')}"
+        )
+        body = json.dumps(native_payload).encode("utf-8")
+        request = Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(request, timeout=self.config.timeout_seconds) as response:
+                native_response = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise LLMError(f"Gemini native API returned HTTP {exc.code}") from exc
+        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise LLMError("Gemini native API request failed") from exc
+        try:
+            content = native_response["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMError("Gemini native response had no assistant content") from exc
+        return {"choices": [{"message": {"content": content}}]}
 
     def _request(self, payload: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
