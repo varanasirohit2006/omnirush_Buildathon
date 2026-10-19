@@ -37,6 +37,8 @@ class Commitment:
     last_nudged_at: datetime | None = None
     updated_at: datetime | None = None
     evidence: list[str] = field(default_factory=list)
+    review_decision: str | None = None
+    review_reason: str | None = None
 
     @property
     def confidence_label(self) -> str:
@@ -79,4 +81,7 @@ class AgentState:
     messages: list[Message] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
     outbox: list[OutgoingMessage] = field(default_factory=list)
+    ignored_candidates: list[Commitment] = field(default_factory=list)
+    ai_review_status: str = "not configured"
+    ai_review_error: str | None = None
     clock: datetime | None = None

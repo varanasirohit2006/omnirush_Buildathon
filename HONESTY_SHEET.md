@@ -16,6 +16,7 @@
 - The local outbox displays reminder and escalation text but does not send a real Telegram or email message.
 - Fast-forwarding replaces real elapsed time so the complete demo fits in 90 seconds.
 - Extraction uses explainable rules and a small English/slang/Hinglish pattern library. It is not presented as broad language understanding.
+- Optional AI review is used only for low-confidence candidates and only when the operator configures an OpenAI-compatible endpoint. High-confidence items stay on the deterministic path.
 - The current running process keeps state in memory. A future version should persist approved state in local SQLite.
 
 ## How false reminders are prevented
@@ -27,6 +28,7 @@
 5. The policy permits at most two reminders and one overdue escalation.
 6. Re-evaluating the agent at the same simulated time is idempotent.
 7. Every outgoing message is recorded in the local outbox with a purpose and commitment ID.
+8. If the AI API fails or returns invalid data, the deterministic result is kept and the failure is shown as a fallback status.
 
 ## How reports stay fair
 

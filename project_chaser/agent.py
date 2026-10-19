@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
+from typing import Any
 
 from .chat import parse_chat
 from .extractor import _resolve_deadline, extract_commitments
+from .llm import LLMError, LLMReview
 from .models import AgentState, Commitment, Event, Message, OutgoingMessage
 
 
@@ -23,12 +25,90 @@ def _outgoing_id(state: AgentState) -> str:
     return f"o{len(state.outbox) + 1:03d}"
 
 
-def new_state(chat_text: str, clock: datetime | None = None) -> AgentState:
+def _apply_llm_reviews(state: AgentState, reviewer: Any) -> None:
+    low_confidence = [
+        commitment
+        for commitment in state.commitments
+        if commitment.confidence < 0.8 or commitment.needs_clarification
+    ]
+    if not low_confidence:
+        state.ai_review_status = "not needed"
+        return
+    try:
+        reviews: list[LLMReview] = reviewer.review(state.messages, low_confidence)
+    except LLMError as exc:
+        state.ai_review_status = "fallback: unavailable"
+        state.ai_review_error = str(exc)
+        state.events.append(
+            Event(
+                id=_event_id(state),
+                kind="llm_review_failed",
+                commitment_id=None,
+                timestamp=state.clock or datetime.now(),
+                description="Optional AI review failed; deterministic extraction was kept.",
+                evidence=None,
+            )
+        )
+        return
+
+    review_by_id = {review.candidate_id: review for review in reviews}
+    retained: list[Commitment] = []
+    for commitment in state.commitments:
+        review = review_by_id.get(commitment.id)
+        if review is None:
+            retained.append(commitment)
+            continue
+        commitment.review_decision = review.decision
+        commitment.review_reason = review.reason
+        event_kind = "llm_reviewed"
+        if review.decision == "ignore":
+            state.ignored_candidates.append(commitment)
+            event_kind = "llm_candidate_ignored"
+        else:
+            if review.decision == "accepted":
+                # The model cannot promote a tentative, ownerless, or undated
+                # candidate into an accepted reminder-bearing commitment.
+                if (
+                    commitment.owner
+                    and commitment.deadline
+                    and commitment.commitment_strength == "direct"
+                    and not commitment.clarification
+                ):
+                    commitment.status = "accepted"
+                    commitment.clarification = None
+                else:
+                    commitment.status = "proposed"
+            elif review.decision == "clarify":
+                commitment.status = "proposed"
+                commitment.clarification = review.clarification or commitment.clarification or "Can you confirm the owner and exact deadline?"
+            else:
+                commitment.status = "proposed"
+            retained.append(commitment)
+        state.events.append(
+            Event(
+                id=_event_id(state),
+                kind=event_kind,
+                commitment_id=commitment.id,
+                timestamp=commitment.updated_at or state.clock or datetime.now(),
+                description=f"AI review: {review.decision}. {review.reason}",
+                evidence=commitment.source_message_id,
+                metadata={"confidence": review.confidence},
+            )
+        )
+    state.commitments = retained
+    state.ai_review_status = f"applied to {len(reviews)} low-confidence candidate(s)"
+
+
+def new_state(chat_text: str, clock: datetime | None = None, reviewer: Any = None) -> AgentState:
     messages = parse_chat(chat_text)
     commitments = extract_commitments(messages)
     initial_clock = clock or max((message.timestamp for message in messages), default=datetime(2026, 10, 19, 9, 0))
     state = AgentState(messages=messages, commitments=commitments, clock=initial_clock)
-    for commitment in commitments:
+    if reviewer is None:
+        state.ai_review_status = "not configured"
+    else:
+        _apply_llm_reviews(state, reviewer)
+    for commitment in state.commitments:
         state.events.append(
             Event(
                 id=_event_id(state),

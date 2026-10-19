@@ -16,6 +16,22 @@ The application is being built as a focused hackathon prototype. The intended de
 
 The prototype does not read private one-to-one chats, require a WhatsApp API, or depend on a live external service.
 
+## Optional AI-assisted review
+
+The normal extractor is deterministic and works without an API. If the optional environment variables below are configured, only low-confidence or clarification candidates are sent in one batch to an OpenAI-compatible chat-completions endpoint. High-confidence commitments stay on the normal local path.
+
+The AI reviewer may classify a candidate as `accepted`, `proposed`, `clarify`, or `ignore`. Safety gates still prevent it from inventing an owner or deadline, promoting tentative work into an accepted reminder-bearing commitment, or breaking the app when the API is unavailable.
+
+Configure these variables locally; never put the key in a committed file:
+
+```powershell
+$env:LLM_API_URL="https://api.openai.com/v1/chat/completions"
+$env:LLM_API_KEY="your-key-in-the-terminal-only"
+$env:LLM_MODEL="your-model-name"
+```
+
+Then start the app from the same PowerShell window. Leave the variables unset for the fully offline demo.
+
 ## Requirements
 
 - Python 3.12

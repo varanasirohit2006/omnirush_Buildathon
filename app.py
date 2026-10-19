@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from project_chaser.agent import advance_clock, correct_commitment, handle_reply, new_state, run_agent
 from project_chaser.demo_data import SAMPLE_CHAT
+from project_chaser.llm import OpenAICompatibleReviewer
 from project_chaser.models import STATUSES, AgentState
 from project_chaser.report import build_report
 
@@ -128,7 +129,10 @@ def render_page(state: AgentState | None, raw_chat: str, notice: str = "") -> st
           <h3>Evidence timeline</h3><ul>{_timeline(state)}</ul>
         </section>"""
         report = _report(state)
-        board_section = f'''<section id="board"><h2>Commitment board</h2><div class="metrics"><span><b>{len(state.commitments)}</b> candidates</span><span><b>{sum(item.status == "accepted" for item in state.commitments)}</b> accepted</span><span><b>{sum(item.needs_clarification for item in state.commitments)}</b> clarify</span><span><b>{sum(item.status == "done" for item in state.commitments)}</b> done</span></div>{board}</section>'''
+        ai_status = esc(state.ai_review_status)
+        if state.ai_review_error:
+            ai_status += f" — {esc(state.ai_review_error)}"
+        board_section = f'''<section id="board"><h2>Commitment board</h2><div class="metrics"><span><b>{len(state.commitments)}</b> candidates</span><span><b>{sum(item.status == "accepted" for item in state.commitments)}</b> accepted</span><span><b>{sum(item.needs_clarification for item in state.commitments)}</b> clarify</span><span><b>{sum(item.status == "done" for item in state.commitments)}</b> done</span><span><b>AI review</b> {ai_status}</span></div>{board}</section>'''
     else:
         board_section = '<section id="board"><p class="notice">Extract the demo chat or paste your own group chat to begin.</p></section>'
         agent_section = '<section id="agent"><p class="notice">The agent controls appear after extraction.</p></section>'
@@ -190,12 +194,12 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/ingest":
             RAW_CHAT = data.get("chat", "")
-            STATE = new_state(RAW_CHAT)
+            STATE = new_state(RAW_CHAT, reviewer=OpenAICompatibleReviewer.from_env())
             notice = f"Read {len(STATE.messages)} messages and found {len(STATE.commitments)} commitment candidates."
             anchor = "board"
         elif path == "/reset":
             RAW_CHAT = SAMPLE_CHAT
-            STATE = new_state(RAW_CHAT)
+            STATE = new_state(RAW_CHAT, reviewer=OpenAICompatibleReviewer.from_env())
             notice = "Demo chat reset."
             anchor = "intake"
         elif STATE is None:
