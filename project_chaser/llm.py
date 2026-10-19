@@ -21,6 +21,31 @@ class LLMError(RuntimeError):
     """Raised when the optional reviewer cannot produce a valid response."""
 
 
+def _load_local_env() -> None:
+    """Load simple KEY=value entries from the project .env if present.
+
+    This intentionally supports only the small local configuration format we
+    need. Existing process environment variables always win, and values are
+    never printed or committed.
+    """
+
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    try:
+        with open(env_path, encoding="utf-8") as env_file:
+            lines = env_file.readlines()
+    except OSError:
+        return
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 @dataclass(frozen=True)
 class LLMReview:
     candidate_id: str
@@ -39,6 +64,7 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> LLMConfig | None:
+        _load_local_env()
         url = os.environ.get("LLM_API_URL", "").strip()
         api_key = os.environ.get("LLM_API_KEY", "").strip()
         model = os.environ.get("LLM_MODEL", "").strip()

@@ -17,6 +17,7 @@
 - Fast-forwarding replaces real elapsed time so the complete demo fits in 90 seconds.
 - Extraction uses explainable rules and a small English/slang/Hinglish pattern library. It is not presented as broad language understanding.
 - Optional AI review is used only for low-confidence candidates and only when the operator configures an OpenAI-compatible endpoint. High-confidence items stay on the deterministic path.
+- For Gemini, the prototype uses Google's OpenAI-compatible endpoint and sends only low-confidence candidate messages in the configured review request.
 - The current running process keeps state in memory. A future version should persist approved state in local SQLite.
 
 ## How false reminders are prevented

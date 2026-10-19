@@ -25,12 +25,12 @@ The AI reviewer may classify a candidate as `accepted`, `proposed`, `clarify`, o
 Configure these variables locally; never put the key in a committed file:
 
 ```powershell
-$env:LLM_API_URL="https://api.openai.com/v1/chat/completions"
+$env:LLM_API_URL="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 $env:LLM_API_KEY="your-key-in-the-terminal-only"
-$env:LLM_MODEL="your-model-name"
+$env:LLM_MODEL="gemini-2.0-flash"
 ```
 
-Then start the app from the same PowerShell window. Leave the variables unset for the fully offline demo.
+You can also put the same variable names in a local `.env` file. The application loads that file automatically; `.env` is ignored by Git. Then start the app from the same project folder. Leave the variables unset for the fully offline demo.
 
 ## Requirements
 

@@ -83,3 +83,17 @@ def test_openai_compatible_json_response_is_parsed_without_network():
     assert reviews[0].candidate_id == "c001"
     assert reviews[0].decision == "clarify"
     assert reviews[0].clarification == "What date should I track?"
+
+
+def test_gemini_configuration_uses_expected_endpoint_without_network(monkeypatch):
+    monkeypatch.setenv("LLM_API_URL", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")
+    monkeypatch.setenv("LLM_API_KEY", "placeholder-for-test")
+    monkeypatch.setenv("LLM_MODEL", "gemini-test-model")
+    monkeypatch.setenv("LLM_TIMEOUT_SECONDS", "17")
+
+    config = LLMConfig.from_env()
+
+    assert config is not None
+    assert config.url.endswith("/v1beta/openai/chat/completions")
+    assert config.model == "gemini-test-model"
+    assert config.timeout_seconds == 17
