@@ -103,6 +103,16 @@ def _report(state: AgentState) -> str:
     </section>"""
 
 
+def _uploaded_text(field: object) -> str | None:
+    """Read a selected upload without letting an empty file input erase pasted text."""
+
+    filename = getattr(field, "filename", None)
+    file_object = getattr(field, "file", None)
+    if not filename or file_object is None:
+        return None
+    return file_object.read().decode("utf-8", errors="replace")
+
+
 def render_page(state: AgentState | None, raw_chat: str, notice: str = "") -> str:
     if state:
         board = _board(state)
@@ -154,8 +164,10 @@ class Handler(BaseHTTPRequestHandler):
                 if key in form:
                     field = form[key]
                     values[key] = field.value if hasattr(field, "value") else str(field)
-            if "upload" in form and getattr(form["upload"], "file", None):
-                values["chat"] = form["upload"].file.read().decode("utf-8", errors="replace")
+            if "upload" in form:
+                uploaded_text = _uploaded_text(form["upload"])
+                if uploaded_text is not None:
+                    values["chat"] = uploaded_text
             return values
         length = int(self.headers.get("content-length", "0"))
         raw = self.rfile.read(length).decode("utf-8", errors="replace")
