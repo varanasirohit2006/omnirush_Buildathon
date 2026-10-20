@@ -40,6 +40,24 @@ def test_reply_updates_blocked_and_completion_states():
     assert state.events[-1].kind == "reply_done"
 
 
+def test_selected_commitment_id_wins_when_sender_owns_multiple_items():
+    state = new_state(
+        "\n".join(
+            [
+                "2026-10-19 09:00 - Alex: I will do the slides by tomorrow",
+                "2026-10-19 09:05 - Alex: I will do the API by Friday",
+            ]
+        )
+    )
+    slides, api = state.commitments
+
+    changed = handle_reply(state, "Alex", "done API", commitment_id=api.id)
+
+    assert changed is api
+    assert slides.status == "accepted"
+    assert api.status == "done"
+
+
 def test_overdue_silent_commitment_gets_one_escalation_and_report_evidence():
     state = new_state(CHAT)
     state.clock = datetime(2026, 10, 19, 10, 0)

@@ -467,7 +467,16 @@ class Handler(BaseHTTPRequestHandler):
             view = "chase"
         elif path == "/reply":
             item = next((candidate for candidate in STATE.commitments if candidate.id == data.get("commitment_id")), None)
-            changed = handle_reply(STATE, item.owner, data.get("reply", "")) if item and item.owner else None
+            changed = (
+                handle_reply(
+                    STATE,
+                    item.owner,
+                    data.get("reply", ""),
+                    commitment_id=item.id,
+                )
+                if item and item.owner
+                else None
+            )
             notice = f"Updated {changed.owner}'s commitment to {changed.status}." if changed else "No matching open commitment found."
             view = "chase"
         elif path == "/correct":

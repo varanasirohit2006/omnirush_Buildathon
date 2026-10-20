@@ -277,10 +277,33 @@ def _reply_deadline(text: str, reference: datetime) -> tuple[datetime | None, st
     return _resolve_deadline(clean, reference), value
 
 
-def handle_reply(state: AgentState, sender: str, text: str) -> Commitment | None:
-    """Apply a human reply to the most likely open commitment."""
+def handle_reply(
+    state: AgentState,
+    sender: str,
+    text: str,
+    commitment_id: str | None = None,
+) -> Commitment | None:
+    """Apply a human reply to an explicit or most likely open commitment.
 
-    commitment = _find_commitment(state, sender, text)
+    The browser supplies a commitment ID when a teammate owns multiple items.
+    Keep the sender/task matching fallback for imported replies and existing
+    callers that do not have an explicit commitment selection.
+    """
+
+    if commitment_id is not None:
+        commitment = next(
+            (
+                candidate
+                for candidate in state.commitments
+                if candidate.id == commitment_id
+                and candidate.owner
+                and candidate.owner.lower() == sender.lower()
+                and candidate.status not in ("done", "missed")
+            ),
+            None,
+        )
+    else:
+        commitment = _find_commitment(state, sender, text)
     if commitment is None:
         return None
     now = state.clock or datetime.now()
