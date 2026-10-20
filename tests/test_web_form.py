@@ -1,7 +1,7 @@
 from io import BytesIO
 from types import SimpleNamespace
 
-from app import _uploaded_text, render_page
+from app import _uploaded_text, render_page, report_csv
 
 
 def test_empty_file_input_does_not_erase_pasted_chat():
@@ -47,3 +47,17 @@ def test_report_download_route_is_linked_from_report_view():
 
     assert "Evidence-based report" in page
     assert 'href="/report.txt"' in page
+    assert 'href="/report.csv"' in page
+
+
+def test_report_csv_contains_commitment_evidence():
+    from project_chaser.agent import new_state
+    from project_chaser.report import build_report
+
+    state = new_state("2026-10-19 09:00 - Alice: I will do the slides by Friday")
+
+    exported = report_csv(build_report(state))
+
+    assert "Owner,Task,Status,Deadline,Evidence,AI review" in exported
+    assert "Alice" in exported
+    assert "m001" in exported

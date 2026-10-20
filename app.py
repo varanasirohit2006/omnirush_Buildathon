@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import cgi
+import csv
 import html
+import io
 import os
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -67,6 +69,20 @@ def report_markdown(report: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def report_csv(report: dict[str, object]) -> str:
+    """Return a spreadsheet-friendly export of the tracked commitments."""
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["Owner", "Task", "Status", "Deadline", "Evidence", "AI review"])
+    for item in report["commitments"]:
+        writer.writerow([
+            item["owner"], item["task"], item["status"], item["deadline"],
+            item["evidence"], item["ai_review"] or "local",
+        ])
+    return output.getvalue()
+
+
 def _uploaded_text(field: object) -> str | None:
     """Read a selected upload without letting an empty file input erase pasted text."""
 
@@ -117,11 +133,24 @@ def _commitment_detail(item: Commitment) -> str:
         else ""
     )
     clarification = f'<div class="callout warning"><strong>Clarification needed</strong><p>{esc(item.clarification)}</p></div>' if item.clarification else ""
+    if item.clarification:
+        policy_note = "Not chased yet: the commitment needs clarification first."
+    elif item.status == "blocked":
+        policy_note = "Not chased: the teammate reported a blocker."
+    elif item.status == "done":
+        policy_note = "Not chased: this commitment is complete."
+    elif item.status == "missed":
+        policy_note = "Escalation policy evaluated after the tracked deadline."
+    elif not item.owner or not item.deadline:
+        policy_note = "Not chased: an owner and exact deadline are required."
+    else:
+        policy_note = "Eligible for bounded reminders during permitted hours."
+    policy_html = f'<p class="policy-note"><strong>Follow-up policy:</strong> {esc(policy_note)}</p>'
     return f"""<details class="commitment-detail">
       <summary><span class="summary-owner">{esc(item.owner or 'Unassigned')}</span><span class="summary-task">{esc(item.task)}</span><span class="summary-deadline">{esc(deadline)}</span><span class="pill {status_class(item.status)}">{esc(item.status)}</span><span class="confidence">{item.confidence:.0%}</span></summary>
       <div class="detail-body">
         <div class="detail-grid"><div><small>Source evidence</small><p class="source">{esc(item.source_text)}</p><code>{esc(item.source_message_id)}</code></div><div><small>Commitment confidence</small><p><strong>{esc(item.confidence_label)}</strong> · {item.confidence:.0%}</p><small>Strength: {esc(item.commitment_strength)}</small></div></div>
-        {ai_review}{clarification}
+         {ai_review}{clarification}{policy_html}
         <form method="post" action="/correct" class="inline-form"><input type="hidden" name="commitment_id" value="{esc(item.id)}"><label>Owner<input name="owner" value="{esc(item.owner or '')}"></label><label>Status<select name="status">{options}</select></label><button class="button small">Save correction</button></form>
       </div>
     </details>"""
@@ -171,7 +200,7 @@ def _report_content(state: AgentState) -> str:
         f'<li><span class="pill {"orange" if risk["reason"] == "blocked" else "red"}">{esc(risk["reason"])}</span><strong>{esc(risk["owner"])}</strong> · {esc(risk["task"])} <code>{esc(risk["evidence"])}</code></li>'
         for risk in report["risks"]
     ) or '<li class="muted">No active risks.</li>'
-    return f"""<div class="page-heading"><div><p class="eyebrow">PROJECT STATUS</p><h2>Evidence-based report</h2><p class="subheading">A fair summary built from commitments, replies, and recorded events.</p></div><a class="button primary" href="/report.txt">↓ Download report</a></div>
+    return f"""<div class="page-heading"><div><p class="eyebrow">PROJECT STATUS</p><h2>Evidence-based report</h2><p class="subheading">A fair summary built from commitments, replies, and recorded events.</p></div><div class="report-actions"><a class="button secondary" href="/report.csv">↓ CSV</a><a class="button primary" href="/report.txt">↓ Markdown report</a></div></div>
       <div class="metrics report-metrics"><div class="metric metric-neutral"><span>Tracked</span><strong>{summary['total']}</strong></div><div class="metric metric-green"><span>Done</span><strong>{summary['done']}</strong></div><div class="metric metric-orange"><span>Blocked</span><strong>{summary['blocked']}</strong></div><div class="metric metric-red"><span>Missed</span><strong>{summary['missed']}</strong></div><div class="metric metric-yellow"><span>Clarify</span><strong>{summary['clarifications']}</strong></div><div class="metric metric-blue"><span>AI reviewed</span><strong>{summary['ai_reviewed']}</strong></div></div>
       <div class="report-grid"><section class="panel"><div class="panel-heading"><div><p class="eyebrow">DELIVERY RECORD</p><h3>All tracked commitments</h3></div><span class="muted">Generated {esc(str(report['generated_at']))}</span></div><div class="table-wrap"><table><thead><tr><th>OWNER</th><th>TASK</th><th>DEADLINE</th><th>STATUS</th><th>REVIEW</th><th>EVIDENCE</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class="panel risk-panel"><div class="panel-heading"><div><p class="eyebrow">ATTENTION</p><h3>Risks & blockers</h3></div></div><ul class="risk-list">{risks}</ul><div class="fairness"><strong>Fairness guardrail</strong><p>Contribution is based on tracked commitments and status evidence, not message volume or guesses about people.</p></div></section></div>"""
 
@@ -372,6 +401,8 @@ td { color: #656375; }
 .clean-list { display: grid; gap: 10px; padding-left: 18px; color: #747386; font-size: .82rem; }
 .clean-list li::marker { color: #9279e8; }
 .notice { padding: 14px; border-radius: 10px; color: #6d6783; background: #f6f4ff; }
+.report-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.policy-note { margin: 12px 0 0; padding: 9px 10px; border-radius: 8px; color: #6f6882; background: #f7f5ff; font-size: .75rem; }
 @media (max-width: 900px) { .nav { display: none; } .hero { grid-template-columns: 1fr; padding: 35px 28px; } .hero-art { display: none; } .metrics, .report-metrics { grid-template-columns: repeat(3, 1fr); } .commitment-header, .commitment-detail summary { grid-template-columns: 1fr 2fr 1fr; } .commitment-header span:nth-child(4), .commitment-header span:nth-child(5), .commitment-detail summary .pill, .commitment-detail summary .confidence { display: none; } .chase-layout, .chase-columns, .report-grid, .three-up, .honesty-grid { grid-template-columns: 1fr; } .reply-form { grid-template-columns: 1fr; } .intake-actions { flex-wrap: wrap; } .button.large { width: 100%; margin-left: 0; } }
 @media (max-width: 580px) { .shell { padding: 0 14px 30px; } .topbar { height: auto; padding: 16px 0; } .top-status { display: none; } h2 { font-size: 1.9rem; } .hero h2 { font-size: 2.6rem; } .metrics, .report-metrics { grid-template-columns: repeat(2, 1fr); } .panel { padding: 17px; } .page-heading { align-items: flex-start; flex-direction: column; } .page-heading .button { width: 100%; } .commitment-header, .commitment-detail summary { gap: 7px; font-size: .7rem; } .summary-task { min-width: 0; } }
 """
@@ -436,6 +467,15 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/report.txt" and STATE is not None:
             self._send_text(report_markdown(build_report(STATE)))
+            return
+        if parsed.path == "/report.csv" and STATE is not None:
+            self.send_response(200)
+            encoded = report_csv(build_report(STATE)).encode("utf-8")
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", 'attachment; filename="project-chaser-report.csv"')
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
             return
         query = parse_qs(parsed.query)
         view = query.get("view", ["intake"])[0]
