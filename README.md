@@ -82,6 +82,8 @@ On Windows PowerShell, the equivalent is:
 
 For the presenter flow, see [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
 
+For a clear explanation of the user journey from chat upload to final report, see [`PROJECT_FLOW.md`](PROJECT_FLOW.md).
+
 ## Docker
 
 ```bash
