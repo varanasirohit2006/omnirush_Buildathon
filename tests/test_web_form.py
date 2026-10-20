@@ -23,6 +23,8 @@ def test_page_uses_focused_workflow_views_instead_of_one_long_page():
     assert "Stop chasing" in intake
     assert 'href="/?view=commitments"' in intake
     assert 'action="/reset"' in intake
+    assert "loadChatFile" in intake
+    assert 'id="chat-input"' in intake
     assert "Your board is waiting" in commitments
     assert 'href="/?view=intake"' in commitments
 
